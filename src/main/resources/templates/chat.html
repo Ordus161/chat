@@ -287,7 +287,6 @@
         <th:block th:with="counter=${0}">
             <th:block th:each="user : ${users}">
                 <th:block th:if="${user.online}">
-                    <!-- Увеличиваем счетчик -->
                     <th:block th:with="counter=${counter + 1}"></th:block>
                 </th:block>
             </th:block>

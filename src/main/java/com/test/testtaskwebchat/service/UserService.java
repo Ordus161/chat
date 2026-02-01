@@ -76,4 +76,8 @@ public class UserService {
                 })
                 .toList();
     }
+
+    public boolean isUserOnline(String username) {
+        return onlineUsers.containsKey(username);
+    }
 }

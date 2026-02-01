@@ -66,7 +66,6 @@ public class ChatController {
     @MessageMapping("/chat.send")
     public void handleChatMessage(String content, SimpMessageHeaderAccessor headerAccessor) {
 
-        // Получаем пользователя из заголовков
         java.security.Principal principal = headerAccessor.getUser();
         if (principal == null) {
             log.warn("Пользователь не аутентифицирован");
@@ -76,13 +75,10 @@ public class ChatController {
         String username = principal.getName();
         log.info("Получено сообщение через WebSocket от {}: {}", username, content);
 
-        // Сохраняем сообщение
         MessageDto savedMessage = chatService.saveMessage(content, username);
 
-        // Отправляем сообщение всем - будет использован JSON конвертер
         messagingTemplate.convertAndSend("/topic/messages", savedMessage);
 
-        // Обновляем список пользователей - тоже будет использован JSON конвертер
         List<UserDto> users = userService.getAllUsers();
         messagingTemplate.convertAndSend("/topic/users", users);
     }
