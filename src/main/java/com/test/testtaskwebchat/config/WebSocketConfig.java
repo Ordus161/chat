@@ -33,17 +33,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public boolean configureMessageConverters(List<MessageConverter> messageConverters) {
-        // Очищаем стандартные конвертеры
+
         messageConverters.clear();
 
-        // 1. StringMessageConverter для текстовых сообщений (должен быть ПЕРВЫМ!)
         StringMessageConverter stringConverter = new StringMessageConverter(StandardCharsets.UTF_8);
         messageConverters.add(stringConverter);
 
-        // 2. JSON конвертер для объектов (MessageDto, List<UserDto> и т.д.)
         MappingJackson2MessageConverter jsonConverter = new MappingJackson2MessageConverter();
 
-        // Настраиваем ObjectMapper для JSON
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
