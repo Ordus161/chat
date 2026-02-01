@@ -3,63 +3,86 @@ package com.test.testtaskwebchat.security;
 import com.test.testtaskwebchat.model.ChatUser;
 import com.test.testtaskwebchat.repository.ChatUserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Optional;
 
+//мок обработка для успешной авторизации через соц сети
 @Service
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final ChatUserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        // Для мока просто возвращаем заглушку
-        String registrationId = userRequest.getClientRegistration().getRegistrationId();
-        String socialId;
-        String username;
+        OAuth2User oauth2User = super.loadUser(userRequest);
 
-        if ("vk".equals(registrationId)) {
-            socialId = "vk_mock_" + UUID.randomUUID().toString().substring(0, 8);
-            username = "vk_user_" + System.currentTimeMillis() % 10000;
-        } else if ("yandex".equals(registrationId)) {
-            socialId = "yandex_mock_" + UUID.randomUUID().toString().substring(0, 8);
-            username = "ya_user_" + System.currentTimeMillis() % 10000;
-        } else {
-            socialId = "social_mock_" + UUID.randomUUID().toString().substring(0, 8);
-            username = "social_user_" + System.currentTimeMillis() % 10000;
+        String registrationId = userRequest.getClientRegistration().getRegistrationId();
+        Map<String, Object> attributes = oauth2User.getAttributes();
+
+        String email = extractEmail(registrationId, attributes);
+
+        if (email == null) {
+            throw new OAuth2AuthenticationException("Email not found from OAuth2 provider");
         }
 
-        ChatUser user = userRepository.findBySocialProviderAndSocialId(registrationId, socialId)
-                .orElseGet(() -> {
-                    ChatUser newUser = ChatUser.builder()
-                            .username(username)
-                            .password(passwordEncoder.encode("social_password"))
-                            .socialProvider(registrationId)
-                            .socialId(socialId)
-                            .build();
-                    return userRepository.save(newUser);
-                });
+        Optional<ChatUser> userOptional = userRepository.findByEmail(email);
 
-        return new DefaultOAuth2User(
-                Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
-                Map.of(
-                        "name", user.getUsername(),
-                        "sub", socialId,
-                        "email", username + "@mock-social.com"
-                ),
-                "name"
-        );
+        ChatUser user;
+        if (userOptional.isPresent()) {
+            user = userOptional.get();
+            updateUserDetails(user, registrationId, attributes);
+        } else {
+            user = createNewUser(email, registrationId, attributes);
+        }
+
+        userRepository.save(user);
+
+        return oauth2User;
+    }
+
+    private String extractEmail(String registrationId, Map<String, Object> attributes) {
+        switch (registrationId) {
+            case "vkontakte":
+                return (String) attributes.get("email");
+            case "yandex":
+                return (String) attributes.get("default_email");
+            default:
+                return null;
+        }
+    }
+
+    private ChatUser createNewUser(String email, String provider, Map<String, Object> attributes) {
+        ChatUser user = new ChatUser();
+        user.setEmail(email);
+        user.setProviderId(provider);
+        user.setEnabled(true);
+
+        if ("vkontakte".equals(provider)) {
+            user.setFirstName((String) attributes.get("first_name"));
+            user.setLastName((String) attributes.get("last_name"));
+            user.setAvatarUrl((String) attributes.get("photo_200"));
+        }
+
+        if ("yandex".equals(provider)) {
+            user.setFirstName((String) attributes.get("first_name"));
+            user.setLastName((String) attributes.get("last_name"));
+        }
+
+        return user;
+    }
+
+    private void updateUserDetails(ChatUser user, String provider, Map<String, Object> attributes) {
+        if ("vkontakte".equals(provider)) {
+            user.setFirstName((String) attributes.get("first_name"));
+            user.setLastName((String) attributes.get("last_name"));
+            user.setAvatarUrl((String) attributes.get("photo_200"));
+        }
     }
 }
