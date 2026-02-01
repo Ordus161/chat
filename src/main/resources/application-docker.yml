@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: jdbc:h2:file:/app/data/webchatdb
+  h2:
+    console:
+      enabled: true
+      settings:
+        web-allow-others: true

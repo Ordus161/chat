@@ -1,0 +1,90 @@
+spring:
+  application:
+    name: webchat
+
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+  datasource:
+    url: jdbc:h2:file:./data/webchatdb;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    show-sql: true
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    servlet:
+      content-type: text/html
+    check-template-location: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          vk:
+            client-id: mock-vk-client-id
+            client-secret: mock-vk-secret
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/vk"
+            authorization-grant-type: authorization_code
+            client-name: VK
+            provider: vk
+          yandex:
+            client-id: mock-yandex-client-id
+            client-secret: mock-yandex-secret
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/yandex"
+            authorization-grant-type: authorization_code
+            client-name: Yandex
+            provider: yandex
+        provider:
+          vk:
+            authorization-uri: https://oauth.vk.com/authorize
+            token-uri: https://oauth.vk.com/access_token
+            user-info-uri: https://api.vk.com/method/users.get
+            user-name-attribute: id
+          yandex:
+            authorization-uri: https://oauth.yandex.ru/authorize
+            token-uri: https://oauth.yandex.ru/token
+            user-info-uri: https://login.yandex.ru/info
+            user-name-attribute: login
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    encoding:
+      charset: UTF-8
+
+logging:
+  level:
+    com.example.webchat: INFO
+    org.springframework.security: INFO

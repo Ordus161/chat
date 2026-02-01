@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity6">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebChat - Чат</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .chat-area {
+            flex: 3;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .users-area {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .message.own {
+            background: #dcf8c6;
+            margin-left: auto;
+            margin-right: 0;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .message-sender {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .message-time {
+            color: #666;
+        }
+
+        .message-content {
+            word-wrap: break-word;
+        }
+
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .user-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .user-item.online {
+            border-left: 4px solid #28a745;
+            background: #f0fff4;
+        }
+
+        .user-item.offline {
+            border-left: 4px solid #6c757d;
+            background: #f8f9fa;
+        }
+
+        .user-status {
+            font-size: 0.8em;
+            color: #6c757d;
+        }
+
+        .user-status.online {
+            color: #28a745;
+        }
+
+        .message-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .message-form input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .message-form button {
+            padding: 12px 24px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .message-form button:hover {
+            background: #0056b3;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .online .status-indicator {
+            background-color: #28a745;
+        }
+
+        .offline .status-indicator {
+            background-color: #6c757d;
+        }
+
+        header {
+            background: #007bff;
+            color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .connection-status {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            margin-right: 15px;
+        }
+
+        .connected {
+            background: #28a745;
+            color: white;
+        }
+
+        .disconnected {
+            background: #dc3545;
+            color: white;
+        }
+
+        .refresh-notice {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="header-content">
+        <h1 style="margin: 0;">WebChat</h1>
+        <div style="display: flex; align-items: center;">
+            <div id="connectionStatus" class="connection-status disconnected">
+                Отключено
+            </div>
+            <span style="margin-right: 20px;">
+                    Вы: <strong th:text="${username}"></strong>
+                </span>
+            <form th:action="@{/logout}" method="post">
+                <button type="submit" style="background: #dc3545; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">
+                    Выйти
+                </button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <div class="chat-area">
+        <h2>Общий чат</h2>
+
+        <div id="messages" class="messages">
+            <div th:each="message : ${messages}"
+                 th:class="${message.username == username} ? 'message own' : 'message'">
+                <div class="message-header">
+                    <span class="message-sender" th:text="${message.username}"></span>
+                    <span class="message-time"
+                          th:text="${#temporals.format(message.createdAt, 'HH:mm:ss')}"></span>
+                </div>
+                <div class="message-content" th:text="${message.content}"></div>
+            </div>
+        </div>
+
+        <form th:action="@{/chat/send}" th:object="${newMessage}" method="post" class="message-form" id="messageForm">
+            <input type="text" th:field="*{content}" placeholder="Введите сообщение..." required id="messageInput">
+            <button type="submit">Отправить</button>
+        </form>
+
+        <div class="refresh-notice">
+            <p>Сообщения обновляются в реальном времени</p>
+            <p>Если сообщения не обновляются, проверьте подключение WebSocket (зеленый индикатор вверху)</p>
+        </div>
+    </div>
+
+    <div class="users-area">
+        <h3>Пользователи онлайн</h3>
+        <div style="margin-bottom: 15px;">
+            <button onclick="loadUsers()" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                Обновить список
+            </button>
+            <div style="color: #666; font-size: 0.9em; text-align: center;">
+                Список обновляется автоматически
+            </div>
+        </div>
+
+        <ul id="usersList" class="user-list">
+            <li th:each="user : ${users}"
+                th:class="${user.online} ? 'user-item online' : 'user-item offline'">
+                    <span>
+                        <span th:class="${user.online} ? 'status-indicator online' : 'status-indicator offline'"></span>
+                        <span th:text="${user.username}"></span>
+                    </span>
+                <span th:if="${!user.online}" class="user-status" th:text="'был: ' + ${user.lastSeen}"></span>
+                <span th:if="${user.online}" class="user-status online">онлайн</span>
+            </li>
+        </ul>
+
+        <div style="margin-top: 20px; text-align: center; padding-top: 15px; border-top: 1px solid #eee;">
+            <p><strong>Всего:</strong> <span id="totalUsers" th:text="${#lists.size(users)}"></span></p>
+            <p><strong>Онлайн:</strong>
+                <span id="onlineUsers">
+        <th:block th:with="counter=${0}">
+            <th:block th:each="user : ${users}">
+                <th:block th:if="${user.online}">
+                    <!-- Увеличиваем счетчик -->
+                    <th:block th:with="counter=${counter + 1}"></th:block>
+                </th:block>
+            </th:block>
+            <span th:text="${counter}"></span>
+        </th:block>
+    </span>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let stompClient = null;
+    const currentUser = document.querySelector('[th\\:text="${username}"]') ?
+        document.querySelector('[th\\:text="${username}"]').textContent : 'user'
+
+    function connect() {
+        const socket = new SockJS('/ws')
+        stompClient = Stomp.over(socket)
+
+        stompClient.connect({}, function() {
+            updateConnectionStatus(true)
+
+            stompClient.subscribe('/topic/messages', function(message) {
+                const newMessage = JSON.parse(message.body)
+                addMessageToChat(newMessage)
+            });
+
+            stompClient.subscribe('/topic/users', function(usersData) {
+                const users = JSON.parse(usersData.body)
+                updateUsersList(users);
+            });
+
+            stompClient.send("/app/chat.addUser", {}, currentUser)
+
+        }, function() {
+            updateConnectionStatus(false)
+            setTimeout(connect, 5000)
+        })
+    }
+
+    function disconnect() {
+        if (stompClient !== null) {
+            stompClient.disconnect()
+        }
+        updateConnectionStatus(false)
+    }
+
+    function sendMessage() {
+        const messageInput = document.getElementById('messageInput')
+        const content = messageInput.value.trim()
+
+        if (content && stompClient) {
+            stompClient.send("/app/chat.send",
+                {'content-type': 'text/plain;charset=UTF-8'},
+                content
+            )
+
+            messageInput.value = ''
+        } else if (!stompClient) {
+            alert('Нет подключения к чату. Попробуйте обновить страницу.')
+        }
+    }
+
+    function addMessageToChat(message) {
+        const messagesDiv = document.getElementById('messages')
+
+        const messageDiv = document.createElement('div')
+        messageDiv.className = message.username === currentUser ? 'message own' : 'message'
+
+        const messageHeader = document.createElement('div')
+        messageHeader.className = 'message-header'
+
+        const senderSpan = document.createElement('span')
+        senderSpan.className = 'message-sender'
+        senderSpan.textContent = message.username
+
+        const timeSpan = document.createElement('span')
+        timeSpan.className = 'message-time'
+
+        const date = new Date(message.createdAt)
+        timeSpan.textContent = date.toLocaleTimeString('ru-RU', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        })
+
+        const contentDiv = document.createElement('div')
+        contentDiv.className = 'message-content'
+        contentDiv.textContent = message.content
+
+        messageHeader.appendChild(senderSpan)
+        messageHeader.appendChild(timeSpan)
+        messageDiv.appendChild(messageHeader)
+        messageDiv.appendChild(contentDiv)
+
+        messagesDiv.appendChild(messageDiv)
+
+        messagesDiv.scrollTop = messagesDiv.scrollHeight
+    }
+
+    function updateUsersList(users) {
+        const usersList = document.getElementById('usersList')
+        const totalUsers = document.getElementById('totalUsers')
+        const onlineUsers = document.getElementById('onlineUsers')
+
+        usersList.innerHTML = ''
+
+        let onlineCount = 0
+
+        users.forEach(function(user) {
+            if (user.online) onlineCount++
+
+            const li = document.createElement('li')
+            li.className = user.online ? 'user-item online' : 'user-item offline'
+
+            const userSpan = document.createElement('span')
+
+            const statusIndicator = document.createElement('span')
+            statusIndicator.className = user.online ? 'status-indicator online' : 'status-indicator offline'
+
+            const usernameSpan = document.createElement('span')
+            usernameSpan.textContent = user.username
+
+            userSpan.appendChild(statusIndicator)
+            userSpan.appendChild(usernameSpan)
+
+            const statusSpan = document.createElement('span')
+            statusSpan.className = user.online ? 'user-status online' : 'user-status'
+
+            if (user.online) {
+                statusSpan.textContent = 'онлайн'
+                statusSpan.className = 'user-status online'
+            } else {
+                statusSpan.textContent = 'был: ' + user.lastSeen
+                statusSpan.className = 'user-status'
+            }
+
+            li.appendChild(userSpan)
+            li.appendChild(statusSpan)
+            usersList.appendChild(li)
+        })
+
+        totalUsers.textContent = users.length
+        onlineUsers.textContent = onlineCount
+    }
+
+    function updateConnectionStatus(connected) {
+        const statusElement = document.getElementById('connectionStatus')
+        if (connected) {
+            statusElement.textContent = 'Подключено ✓'
+            statusElement.className = 'connection-status connected'
+        } else {
+            statusElement.textContent = 'Отключено ✗'
+            statusElement.className = 'connection-status disconnected'
+        }
+    }
+
+    function loadUsers() {
+        fetch('/chat/users/update')
+            .then(response => response.json())
+            .then(users => {
+                updateUsersList(users)
+            })
+    }
+
+    window.onload = function() {
+        connect()
+
+        const messageForm = document.getElementById('messageForm')
+        if (messageForm) {
+            messageForm.addEventListener('submit', function(e) {
+                e.preventDefault()
+                sendMessage()
+            })
+        }
+
+        const messageInput = document.getElementById('messageInput')
+        if (messageInput) {
+            messageInput.focus()
+
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendMessage()
+                }
+            })
+        }
+
+        const messagesDiv = document.getElementById('messages')
+        if (messagesDiv) {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight
+        }
+
+        setInterval(loadUsers, 30000);
+    }
+
+    window.onbeforeunload = function() {
+        disconnect()
+    }
+</script>
+</body>
+</html>
