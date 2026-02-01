@@ -46,6 +46,7 @@ spring:
     check-template-location: true
 
   security:
+#    моки для тестирования, реальные аки на вк бизнесе и т.д. не заводил
     oauth2:
       client:
         registration:
@@ -86,5 +87,5 @@ server:
 
 logging:
   level:
-    com.example.webchat: INFO
+    com.test.testtaskwebchat: INFO
     org.springframework.security: INFO

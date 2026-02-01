@@ -1,0 +1,52 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-extend-users-table-for-oauth2
+      author: system
+      changes:
+        # Добавляем только недостающие колонки
+        - addColumn:
+            tableName: users
+            columns:
+              - column:
+                  name: provider_id
+                  type: VARCHAR(255)
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: auth_provider
+                  type: VARCHAR(20)
+                  defaultValue: LOCAL
+              - column:
+                  name: first_name
+                  type: VARCHAR(100)
+              - column:
+                  name: last_name
+                  type: VARCHAR(100)
+              - column:
+                  name: avatar_url
+                  type: VARCHAR(500)
+              - column:
+                  name: email_verified
+                  type: BOOLEAN
+                  defaultValue: false
+              - column:
+                  name: enabled
+                  type: BOOLEAN
+                  defaultValue: true
+#        для работы первоначального простого локального пользако, ДО добавления соц сетей
+        - renameColumn:
+            tableName: users
+            oldColumnName: social_provider
+            newColumnName: old_social_provider
+            columnDataType: VARCHAR(50)
+            remarks: "Старое поле, оставлено для обратной совместимости"
+
+        - renameColumn:
+            tableName: users
+            oldColumnName: social_id
+            newColumnName: old_social_id
+            columnDataType: VARCHAR(255)
+            remarks: "Старое поле, оставлено для обратной совместимости"

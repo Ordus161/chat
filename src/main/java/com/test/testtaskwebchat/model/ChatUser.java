@@ -1,6 +1,7 @@
 package com.test.testtaskwebchat.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -24,30 +25,70 @@ public class ChatUser {
     @Column(unique = true, nullable = false)
     private String username;
 
-    @NotBlank
-    @Size(min = 5)
+    @Email
+    @Column(unique = true)
+    private String email;
+
     @Column(nullable = false)
     private String password;
 
-    private String socialProvider;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider")
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
 
-    private String socialId;
+    @Column(name = "provider_id")
+    private String providerId;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
 
     @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(name = "last_seen")
     private LocalDateTime lastSeen;
 
+    @Column(name = "email_verified")
+    @Builder.Default
+    private Boolean emailVerified = false;
+
+    @Column(name = "enabled")
+    @Builder.Default
+    private Boolean enabled = true;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @Builder.Default
     private Set<ChatMessage> messages = new HashSet<>();
 
+    public enum AuthProvider {
+        LOCAL,
+        VK,
+        YANDEX
+    }
+
     @PrePersist
-    public void prePersist() {
+    protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (enabled == null) {
+            enabled = true;
+        }
+        if (emailVerified == null) {
+            emailVerified = false;
+        }
+        if (authProvider != AuthProvider.LOCAL && email != null) {
+            emailVerified = true;
         }
     }
 }
