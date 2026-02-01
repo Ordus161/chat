@@ -17,7 +17,6 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final ChatUserRepository userRepository;
 
     @Override
-    @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         ChatUser chatUser = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));

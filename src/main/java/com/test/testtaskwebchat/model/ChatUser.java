@@ -1,5 +1,6 @@
 package com.test.testtaskwebchat.model;
 
+import com.test.testtaskwebchat.enums.AuthProvider;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -69,12 +70,6 @@ public class ChatUser {
     @EqualsAndHashCode.Exclude
     @Builder.Default
     private Set<ChatMessage> messages = new HashSet<>();
-
-    public enum AuthProvider {
-        LOCAL,
-        VK,
-        YANDEX
-    }
 
     @PrePersist
     protected void onCreate() {
